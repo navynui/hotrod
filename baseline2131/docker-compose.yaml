@@ -1,0 +1,55 @@
+# Baseline: the user's existing image, strata:v0.2.13.1-pascal (engine 0.1.59.1),
+# run as a THIRD, isolated service on 127.0.0.1:8093. It does not start, stop or
+# write to the pinned `strata` container: the image is used read-only, the model
+# shares are mounted read-only, and only ./baseline2131/data is writable.
+#
+# The packaged 0.2.13.1 image normally starts through /opt/strata/entrypoint.sh
+# and its terminal; here serve/server.py is started directly with a config whose
+# engine is the image's CUDA 12 component, so no setup pass runs.
+#
+#   docker compose -f baseline2131/docker-compose.yaml up -d
+#   docker compose -f baseline2131/docker-compose.yaml stop
+
+services:
+  strata-baseline-2131:
+    image: strata:v0.2.13.1-pascal
+    container_name: strata-baseline-2131
+    restart: "no"
+    entrypoint: []
+    command:
+      - /opt/strata/terminal/python/bin/python3
+      - /opt/strata/terminal/serve/server.py
+      - --engine
+      - strata
+      - --config
+      - /data/config/strata-coder-iq1_m.json
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      # loopback-only port; a key keeps the API closed to anything else
+      - --api-key
+      - bench-key
+    working_dir: /opt/strata/terminal
+
+    gpus: all
+
+    ports:
+      - "127.0.0.1:8093:8080"
+
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    cap_add:
+      - IPC_LOCK
+    shm_size: "1gb"
+
+    environment:
+      GPU: "0"
+      LD_LIBRARY_PATH: /opt/strata/components/engine/0.1.59.1-linux-x86_64-cuda-cuda12
+
+    volumes:
+      - ./data:/data
+      - /home/nui/dev/strata/Strata-data/Strata-data/models:/data/models:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/packs:/data/packs:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/mtp:/data/mtp:ro

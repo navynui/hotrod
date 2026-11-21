@@ -1,0 +1,20 @@
+# Downloaded upstream source (public, pinned in AGENT.md) - re-clone, never commit
+Strata-HotRod/
+upstream-0.1.45/
+
+# Runtime state and logs (created by the containers; rebuilt on every start)
+data/logs/
+data/state/
+control/data/logs/
+control/data/state/
+baseline2131/data/logs/
+baseline2131/data/state/
+baseline2131/data/home/
+
+# Docker build logs
+*.log
+
+# Python / editor noise
+__pycache__/
+*.pyc
+.venv/

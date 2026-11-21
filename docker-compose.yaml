@@ -1,0 +1,70 @@
+# Strata-HotRod (https://github.com/sangharshadhyeta/Strata-HotRod) - isolated
+# test on this PC. It does not touch ~/dev/strata or its container.
+#
+#   docker compose build     compile the fork's 0.1.45-line engine for sm_60/sm_61
+#   docker compose up -d     start on 127.0.0.1:8091
+#   docker compose logs -f   follow the server and engine log
+#   docker compose down      stop it (the main strata install is untouched)
+#
+# The model, pack and MTP layer of the existing v0.2.13.1 install are mounted
+# READ-ONLY at /data/{models,packs,mtp}; only ./data (config, logs, state) is
+# writable. The engine is the fork's, built against CUDA 12.9 for Pascal.
+#
+# OpenAI/Anthropic-compatible API: http://127.0.0.1:8091/v1
+# No API key is set here (the port is loopback-only). Set STRATA_API_KEY to
+# require one, as the 0.2.13.1 install does.
+
+services:
+  strata-hotrod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CUDA_IMAGE: nvidia/cuda:12.9.1-devel-ubuntu24.04
+        CUDA_ARCHITECTURES: "60;61"
+        BUILD_VISION: "0"
+    image: strata:hotrod-0.1.45-pascal
+    container_name: strata-hotrod
+    # A test service: do not restart-loop a crash.
+    restart: "no"
+
+    gpus: all
+
+    ports:
+      # Loopback only. 8090 belongs to the pinned v0.2.13.1 install.
+      - "127.0.0.1:8091:8080"
+
+    # Strata pins expert memory: unlimited memlock + IPC_LOCK, a bigger /dev/shm.
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    cap_add:
+      - IPC_LOCK
+    shm_size: "1gb"
+
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      # The P100 (GPU 0). The GTX 1060 stays out of the split, as in strata.
+      GPU: "0"
+      # Pascal opt-in for the engine itself.
+      STRATA_EXPERIMENTAL_SM60: "1"
+      CONFIG: /data/config/strata-coder-iq1_m.json
+      # Stand-ins are OFF by default (margin 0). Two A/B knobs:
+      #   HOTROD_MARGIN=1   -> STRATA_ROUTE_RESIDENT=1: ranks 6-9 may take a
+      #                        resident expert within 1 logit (the docs' rule).
+      #   HOTROD_STANDIN_ALL=1 -> STRATA_STANDIN=1: every rank, any distance.
+      # Recreate after changing: HOTROD_MARGIN=1 docker compose up -d --force-recreate
+      STRATA_ROUTE_RESIDENT: ${HOTROD_MARGIN:-}
+      STRATA_STANDIN: ${HOTROD_STANDIN_ALL:-}
+      # Quality guard for the stand-in arms: costs ~25% speed, =1 turns it on.
+      STRATA_FRAGILE_RECHECK: ${HOTROD_RECHECK:-}
+      # STRATA_API_KEY: ${STRATA_API_KEY:-}
+
+    volumes:
+      # config, engine log and learned state for this test only
+      - ./data:/data
+      # the existing model/pack/MTP, shared read-only with strata
+      - /home/nui/dev/strata/Strata-data/Strata-data/models:/data/models:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/packs:/data/packs:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/mtp:/data/mtp:ro

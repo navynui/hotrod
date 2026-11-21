@@ -1,0 +1,8 @@
+# The model/pack/MTP shares and the run state are bind-mounted at run time,
+# never part of the build context.
+data/
+control/data/
+# Clone metadata is not needed to build.
+Strata-HotRod/.git/
+upstream-0.1.45/.git/
+*.log

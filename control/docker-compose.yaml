@@ -1,0 +1,40 @@
+# Control: plain upstream v0.1.45 in the same isolated setup as the HotRod test.
+# Same model/pack/MTP, read-only, same config, port 8092. The strata install is
+# not involved.
+services:
+  strata-upstream-control:
+    build:
+      context: ..
+      dockerfile: control/Dockerfile
+      args:
+        CUDA_IMAGE: nvidia/cuda:12.9.1-devel-ubuntu24.04
+        CUDA_ARCHITECTURES: "60;61"
+        BUILD_VISION: "0"
+    image: strata:upstream-0.1.45-pascal
+    container_name: strata-upstream-control
+    restart: "no"
+
+    gpus: all
+
+    ports:
+      - "127.0.0.1:8092:8080"
+
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    cap_add:
+      - IPC_LOCK
+    shm_size: "1gb"
+
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      GPU: "0"
+      STRATA_EXPERIMENTAL_SM60: "1"
+      CONFIG: /data/config/strata-coder-iq1_m.json
+
+    volumes:
+      - ./data:/data
+      - /home/nui/dev/strata/Strata-data/Strata-data/models:/data/models:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/packs:/data/packs:ro
+      - /home/nui/dev/strata/Strata-data/Strata-data/mtp:/data/mtp:ro
